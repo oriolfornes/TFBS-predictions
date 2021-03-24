@@ -1,0 +1,697 @@
+import itertools
+import os
+import platform
+import re
+import subprocess as sp
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# For every set of peaks in the "data" folder, the Snakefile will perform
+# motif discovery and and calculate the centrality of each discovered motif. 
+#
+# The folder "data" should be structured as follows:
+#
+# ├── TF1.Experiment_Description.Train.peaks
+# ├── TF2.Experiment_Description.Train.peaks
+# ...
+# └── TFN.Experiment_Description.Train.peaks
+#
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+# ++++++++++++++++++++ #
+# Wildcards            #
+# ++++++++++++++++++++ #
+
+# Transcription factor datasets
+datasets = glob_wildcards(
+    os.path.join(
+        config["base_dir"],
+        config["data_dir"],
+        "{dataset}.bed"
+    )
+)
+
+# Transcription factor motifs
+(folders, TFs, motifs) = glob_wildcards(
+    os.path.join(
+        config["base_dir"],
+        config["results_dir"],
+        "{F}",
+        "motifs",
+        "jaspar",
+        "{TF}_peak-motifs_{motif}.jaspar"
+    )
+)
+
+# ++++++++++++++++++++ #
+# Output files         #
+# ++++++++++++++++++++ #
+
+# Extended peaks
+EXTENDED_PEAKS = expand(
+    os.path.join(
+        config["base_dir"], 
+        config["results_dir"],
+        "{TF}",
+        "peaks",
+        "{TF}.{L}bp.bed"
+    ),
+    TF=datasets.dataset,
+    L=["200", "500"]
+)
+
+# FASTA peaks
+PEAKS_FASTA = expand(
+    os.path.join(
+        config["base_dir"], 
+        config["results_dir"],
+        "{TF}",
+        "fasta",
+        "{TF}.{L}bp.fa"
+    ),
+    TF=datasets.dataset,
+    L=["200", "500"]
+)
+
+# Discovered motifs (RSAT peak-motifs)
+MOTIFS_RSAT = expand(
+    os.path.join(
+        config["base_dir"], 
+        config["results_dir"],
+        "{TF}",
+        "peak-motifs",
+        "results",
+        "discovered_motifs",
+        "{TF}_motifs_discovered.tf"
+    ),
+    TF=datasets.dataset
+)
+
+# Formatted motifs
+MOTIFS_JASPAR = expand(
+    os.path.join(
+        config["base_dir"], 
+        config["results_dir"],
+        "{TF}",
+        "motifs",
+        "jaspar",
+        "{TF}_matrix_list.tab"
+    ),
+    TF=datasets.dataset
+)
+MOTIFS_MEME = expand(
+    os.path.join(
+        config["base_dir"],
+        config["results_dir"],
+        "{TF}",
+        "motifs",
+        "meme",
+        "{TF}_peak-motifs_{motif}.meme"
+    ),
+    zip,
+    TF=TFs,
+    motif=motifs
+)
+MOTIFS_PCM = expand(
+    os.path.join(
+        config["base_dir"],
+        config["results_dir"],
+        "{TF}",
+        "motifs",
+        "pcms",
+        "{TF}@JASPAR_RSAT_peak-motifs@{motif}.pcm"
+    ),
+    zip,
+    TF=TFs,
+    motif=motifs
+)
+
+# Logos
+MOTIFS_LOGO = expand(
+    os.path.join(
+        config["base_dir"],
+        config["results_dir"],
+        "{TF}",
+        "motifs",
+        "logos",
+        "{TF}_peak-motifs_{motif}.png"
+    ),
+    zip,
+    TF=TFs,
+    motif=motifs
+)
+
+# Central erichment analysis
+CENTRIMO_PVAL = expand(
+    os.path.join(
+        config["base_dir"], 
+        config["results_dir"],
+        "{TF}",
+        "centrimo",
+        "{TF}_peak-motifs_{motif}.500bp",
+        "centrimo.tsv"
+    ),
+    zip,
+    TF=TFs,
+    motif=motifs
+)
+CENTRIMO_PLOT = expand(
+    os.path.join(
+        config["base_dir"], 
+        config["results_dir"],
+        "{TF}",
+        "centrimo",
+        "{TF}_peak-motifs_{motif}.500bp",
+        "plot.png"
+    ),
+    zip,
+    TF=TFs,
+    motif=motifs
+)
+
+# # Dashboard
+# DASHBOARD_HTML = os.path.join(
+#     config["base_dir"], 
+#     config["results_dir"],
+#     "dashboard.html"
+# )
+
+# ++++++++++++++++++++ #
+# Target rule          #
+# ++++++++++++++++++++ #
+rule all:
+    input:
+        EXTENDED_PEAKS,
+        PEAKS_FASTA,
+        MOTIFS_RSAT,
+        MOTIFS_JASPAR,
+        MOTIFS_LOGO,
+        MOTIFS_MEME,
+        CENTRIMO_PVAL,
+        CENTRIMO_PLOT,
+        MOTIFS_PCM,
+        # DASHBOARD_HTML
+
+# ++++++++++++++++++++ #
+# Prepare data         #
+# ++++++++++++++++++++ #
+rule Extend_peak_summits:
+    """
+    Extend peak summits to both sides.
+    """
+    input:
+        os.path.join(
+            config["base_dir"],
+            config["data_dir"],
+            "{TF}.bed"
+        )
+    message:
+        "; Extend peak summits - TF: {wildcards.TF} - LEN: {wildcards.L}"
+    output:
+        os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "peaks",
+            "{TF}.{L}bp.bed"
+        )
+    params:
+        prog = "bedtools slop",
+        b = lambda wildcards: (int(wildcards.L) - 200) / 2,
+        g = os.path.join(
+            config["base_dir"],
+            config["genomes_dir"],
+            config["genome"],
+            "%s.fa.sizes" % config["genome"]
+        )
+    priority:
+        99
+    shell:
+        """
+        {params.prog} -b {params.b} -i {input} -g {params.g} > {output}
+        """
+
+rule Get_FASTA_sequences:
+    """
+    Get the FASTA sequences of the extended peaks.
+    """
+    input:
+        os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "peaks",
+            "{TF}.{L}bp.bed"
+        )
+    message:
+        "; Get FASTA sequences - TF: {wildcards.TF} - LEN: {wildcards.L}"
+    output:
+        os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "fasta",
+            "{TF}.{L}bp.fa"
+        )
+    params:
+        prog = "bedtools getfasta",
+        fi = os.path.join(
+            config["base_dir"],
+            config["genomes_dir"],
+            config["genome"],
+            "%s.fa" % config["genome"]
+        )
+    priority:
+        98
+    shell:
+        """
+        {params.prog} -fi {params.fi} -bed {input} -fo {output}
+        """
+
+# ++++++++++++++++++++ #
+# Run RSAT analysis    #
+# ++++++++++++++++++++ #
+rule Run_RSAT_peak_motifs:
+    """
+    Run RSAT peak-motifs (motif discovery with different algorithms) on each
+    set of peaks.
+
+    Discovered motifs are stored as a single file in TRANSFAC format.
+    """
+    input:
+        os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "fasta",
+            "{TF}.200bp.fa"
+        )
+    message:
+        "; Run RSAT peak-motifs - TF: {wildcards.TF}"
+    output:
+        os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "peak-motifs",
+            "results",
+            "discovered_motifs",
+            "{TF}_motifs_discovered.tf"
+        )
+    params:
+        prog = "rsat peak-motifs",
+        disco = "oligos,dyads,positions,local_words",
+        nmotifs = "5",
+        minol = "6",
+        maxol = "7",
+        ci = "25",
+        jaspar2020 = os.path.join(
+            config["base_dir"],
+            config["motifs_dir"],
+            "JASPAR2020_CORE_vertebrates_non-redundant_pfms.tf"
+        ),
+        task = ",".join([
+            "purge", "seqlen", "composition", "disco", "merge_motifs",
+            "split_motifs", "motifs_vs_motifs", "timelog", "archive",
+            "synthesis", "small_summary", "motifs_vs_db", "scan"
+        ]),
+        prefix = "{TF}",
+        outdir = os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "peak-motifs"
+        )
+    priority:
+        97
+    shell:
+        """
+        {params.prog} -v 2 \
+        -r_plot \
+        -title {wildcards.TF} \
+        -i {input} \
+        -markov auto \
+        -disco {params.disco} \
+        -nmotifs {params.nmotifs} \
+        -minol {params.minol} \
+        -maxol {params.maxol} \
+        -no_merge_lengths \
+        -ci {params.ci} \
+        -noov \
+        -2str \
+        -origin center \
+        -motif_db jaspar_core_nonredundant_vertebrates tf {params.jaspar2020} \
+        -scan_markov 1 \
+        -task {params.task} \
+        -prefix {params.prefix} \
+        -img_format png \
+        -outdir {params.outdir}
+        """
+
+rule Run_RSAT_convert_matrix:
+    """
+    Run RSAT convert-matrix on each set of discovered motifs.
+
+    The TRANSFAC file is split into several files (one per motif) adding the
+    motif number (e.g. 1, 2, 3, etc.) as suffix. The resulting motifs are
+    stored as position count matrices (PCMs) in JASPAR format.
+    """
+    input:
+        os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "peak-motifs",
+            "results",
+            "discovered_motifs",
+            "{TF}_motifs_discovered.tf"
+        )
+    message:
+        "; Convert TRANSFAC motifs to JASPAR format - TF: {wildcards.TF}"
+    output:
+        os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "motifs",
+            "jaspar",
+            "{TF}_matrix_list.tab"
+        )
+    params:
+        prog = "rsat convert-matrix",
+        prefix = "peak-motifs",
+        o = os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "motifs",
+            "jaspar",
+            "{TF}"
+        ),
+        r = "counts"
+    priority:
+        96
+    shell:
+        """
+        {params.prog} -v 2 \
+        -from tf -to jaspar \
+        -i {input} \
+        -return {params.r} \
+        -split \
+        -prefix {params.prefix} \
+        -o {params.o} ;
+
+        {params.prog} -v 2 \
+        -from tf -to tab \
+        -i {input} \
+        -return {params.r} \
+        -split \
+        -prefix {params.prefix} \
+        -o {params.o}
+        """
+
+rule Generate_motif_logos:
+    """
+    Generate a logo for each motif.
+
+    This rule is executed for each discovered motif.
+    """
+    input:
+        os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "motifs",
+            "jaspar",
+            "{TF}_peak-motifs_{motif}.jaspar"
+        )
+    message:
+        "; Generate motif logos - TF: {wildcards.TF} - MAT: {wildcards.motif}"
+    output:
+        os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "motifs",
+            "logos",
+            "{TF}_peak-motifs_{motif}.png"
+        )
+    params:
+        prog = os.path.join(
+            config["base_dir"],
+            config["scripts_dir"],
+            "jaspar2logo.py"
+        ),
+        outdir = os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "motifs",
+            "logos"
+        )
+    priority:
+        95
+    shell:
+        """
+        {params.prog} {input} {output}
+        """
+
+# ++++++++++++++++++++ #
+# Run CentriMo         #
+# ++++++++++++++++++++ #
+rule Reformat_motifs_to_MEME:
+    """
+    Reformat motifs from JASPAR to MEME format.
+
+    This rule is executed for each discovered motif.
+    """
+    input:
+        os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "motifs",
+            "jaspar",
+            "{TF}_peak-motifs_m{motif}.jaspar"
+        )
+    message:
+        "; Reformat motifs - TF: {wildcards.TF} - MAT: {wildcards.motif}"
+    output:
+        os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "motifs",
+            "meme",
+            "{TF}_peak-motifs_m{motif}.meme"
+        )
+    params:
+        prog = os.path.join(
+            config["base_dir"],
+            config["scripts_dir"],
+            "jaspar2others.py"
+        ),
+        outdir = os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "motifs",
+            "meme"
+        )
+    priority:
+        94
+    shell:
+        """
+        {params.prog} {input} --format meme > {output}
+        """
+
+rule Run_centrimo:
+    """
+    Calculate p-value for central enrichment.
+
+    This rule is executed for each discovered motif.
+    """
+    input:
+        pwm = os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "motifs",
+            "meme",
+            "{TF}_peak-motifs_{motif}.meme"
+        ),
+        fasta = os.path.join(
+            config["base_dir"], 
+            config["results_dir"],
+            "{TF}",
+            "fasta",
+            "{TF}.500bp.fa"
+        )
+    message:
+        "; Run centrimo - TF: {wildcards.TF} - MAT: {wildcards.motif}"
+    output:
+        os.path.join(
+            config["base_dir"], 
+            config["results_dir"],
+            "{TF}",
+            "centrimo",
+            "{TF}_peak-motifs_{motif}.500bp",
+            "centrimo.tsv"
+        )
+    params:
+        prog = os.path.join(
+            config["base_dir"],
+            config["scripts_dir"],
+            "centrimo"
+        ),
+        oc = os.path.join(
+            config["base_dir"], 
+            config["results_dir"],
+            "{TF}",
+            "centrimo",
+            "{TF}_peak-motifs_{motif}.500bp"
+        )
+    priority:
+        93
+    shell:
+        """
+        {params.prog} --use-lo-fraction --oc {params.oc} --score 0.85 \
+        {input.fasta} {input.pwm}
+        """
+
+rule Generate_centrimo_plots:
+    """
+    Generate centrimo plots (local enrichment) around the peak summits.
+
+    This rule is executed for each discovered motif.
+    """
+    input:
+        os.path.join(
+            config["base_dir"], 
+            config["results_dir"],
+            "{TF}",
+            "motifs",
+            "jaspar",
+            "{TF}_matrix_list.tab"
+        )
+    message:
+        "; Generate centrimo plots - TF: {wildcards.TF} - MAT: {wildcards.motif}"
+    output:
+        os.path.join(
+            config["base_dir"], 
+            config["results_dir"],
+            "{TF}",
+            "centrimo",
+            "{TF}_peak-motifs_{motif}.500bp",
+            "plot.png"
+        )
+    params:
+        prog = os.path.join(
+            config["base_dir"],
+            config["scripts_dir"],
+            "centrimo-plot.py"
+        ),
+        tsv = os.path.join(
+            config["base_dir"], 
+            config["results_dir"],
+            "{TF}",
+            "centrimo",
+            "{TF}_peak-motifs_{motif}.500bp",
+            "centrimo.tsv"
+        ),
+        sites = os.path.join(
+            config["base_dir"], 
+            config["results_dir"],
+            "{TF}",
+            "centrimo",
+            "{TF}_peak-motifs_{motif}.500bp",
+            "site_counts.txt"
+        )
+    priority:
+        92
+    shell:
+        """
+        {params.prog} {params.tsv} {params.sites} {output}
+        """
+
+# ++++++++++++++++++++ #
+# GRECO-BIT format     #
+# ++++++++++++++++++++ #
+rule Reformat_motifs_to_PCM:
+    """
+    Reformat motifs from JASPAR to GRECO-BIT format.
+
+    This rule is executed for each discovered motif.
+    """
+    input:
+        os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "motifs",
+            "jaspar",
+            "{TF}_peak-motifs_{motif}.jaspar"
+        )
+    message:
+        "; Reformat motifs - TF: {wildcards.TF} - MAT: {wildcards.motif}"
+    output:
+        os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "{TF}",
+            "motifs",
+            "pcms",
+            "{TF}@JASPAR_RSAT_peak-motifs@{motif}.pcm"
+        )
+    params:
+        prog = os.path.join(
+            config["base_dir"],
+            config["scripts_dir"],
+            "jaspar2others.py"
+        ),
+        outdir = os.path.join(
+            config["base_dir"],
+            config["results_dir"],
+            "motifs",
+            "pcms"
+        )
+    priority:
+        91
+    shell:
+        """
+        {params.prog} {input} --format pcm > {output}
+        """
+
+# ++++++++++++++++++++ #
+# Generate dashboard   #
+# ++++++++++++++++++++ #
+# rule Generate_dashboard:
+#     """
+#     Summarize results in a dashboard.
+
+#     This rule is executed once.
+#     """
+#     input:
+#         os.path.join(
+#             config["base_dir"],
+#             config["results_dir"]
+#         )
+#     message:
+#         "; Generate dashboard"
+#     output:
+#         os.path.join(
+#             config["base_dir"], 
+#             config["results_dir"],
+#             "dashboard.html"
+#         )
+#     params:
+#         prog = os.path.join(
+#             config["base_dir"],
+#             config["scripts_dir"],
+#             "dashboard.py"
+#         )
+#     priority:
+#         1
+#     shell:
+#         """
+#         python {params.prog} {input} {output}
+#         """

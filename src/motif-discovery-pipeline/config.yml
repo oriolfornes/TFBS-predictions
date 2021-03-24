@@ -1,0 +1,12 @@
+author: "Oriol Fornes"
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Folders and required input files
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+base_dir : /home/ofornes/Work/TFBS-predictions/src/motif-discovery-pipeline/
+data_dir : ../../coordinates/
+genome : hg38
+genomes_dir : ../../data/genomes/
+motifs_dir : ../../data/JASPAR/
+results_dir : ../../motifs/
+scripts_dir : ./scripts/
