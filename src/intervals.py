@@ -32,14 +32,6 @@ def one_hot_decode(encoded_seq):
 
 def get_intervals(tf):
 
-    test = {}
-    train = {}
-    validation = {}
-
-    tf_dir = os.path.join(intervals_dir, tf)
-    if not os.path.isdir(tf_dir):
-        os.makedirs(tf_dir)
-
     numpy_file = "matrix2d.%s.ReMap+UniBind.sparse.npz" % tf
 
     with np.load(os.path.join(matrix_dir, numpy_file)) as handle:
@@ -57,14 +49,21 @@ def get_intervals(tf):
 
         data = h5py.File(h5_file, "r")
 
-        train.setdefault(i, np.array([int(j.decode()) for j in data["train_headers"]]))
-        validation.setdefault(i, np.array([int(j.decode()) for j in data["valid_headers"]]))
+        train = np.array([int(j.decode()) for j in data["train_headers"]])
+        validation = np.array([int(j.decode()) for j in data["valid_headers"]])
         for encoded_seq in data["test_in"]:
             seq = Seq(one_hot_decode(encoded_seq))
             md5 = hashlib.md5(str(seq).encode()).hexdigest()
             if md5 in sequences:
                 arr.append(sequences[md5])
-        test.setdefault(i, np.array(arr))
+        test = np.array(arr)
+
+        if len(train) == 0 or len(test) == 0:
+            continue
+
+        tf_dir = os.path.join(intervals_dir, tf)
+        if not os.path.isdir(tf_dir):
+            os.makedirs(tf_dir)
 
         if not os.path.isdir(os.path.join(tf_dir, str(i))):
             os.makedirs(os.path.join(tf_dir, str(i)))
@@ -76,25 +75,21 @@ def get_intervals(tf):
 
             bed_file = os.path.join(tf_dir, str(i), str(j), "Train.bed")
             if not os.path.exists(bed_file):
-                arr = np.sort(train[i])
-                s = "\n".join([" ".join(regions[j]) for j in arr if matrix1d[j] == i])
+                s = "\n".join([" ".join(regions[ix]) for ix in np.sort(train) if matrix1d[ix] == j])
                 a = BedTool(s, from_string=True)
                 a.saveas(bed_file)
 
             bed_file = os.path.join(tf_dir, str(i), str(j), "Validation.bed")
             if not os.path.exists(bed_file):
-                arr = np.sort(validation[i])
-                s = "\n".join([" ".join(regions[j]) for j in arr if matrix1d[j] == i])
+                s = "\n".join([" ".join(regions[ix]) for ix in np.sort(validation) if matrix1d[ix] == j])
                 a = BedTool(s, from_string=True)
                 a.saveas(bed_file)
 
             bed_file = os.path.join(tf_dir, str(i), str(j), "Test.bed")
             if not os.path.exists(bed_file):
-                arr = np.sort(test[i])
-                s = "\n".join([" ".join(regions[j]) for j in arr if matrix1d[j] == i])
+                s = "\n".join([" ".join(regions[ix]) for ix in np.sort(test) if matrix1d[ix] == j])
                 a = BedTool(s, from_string=True)
                 a.saveas(bed_file)
-
 
 scripts_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -133,7 +128,7 @@ kwargs = {
     "total": len(tfs),
     "ncols": 100
 }
-pool = Pool(1)
+pool = Pool(4)
 for _ in tqdm(pool.imap(get_intervals, tfs), **kwargs):
     pass
 pool.close()
