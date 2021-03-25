@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
+from Bio import SeqIO
+from Bio.Seq import Seq
 import gzip
+import h5py
+import hashlib
 from multiprocessing import Pool
 import numpy as np
 import os
@@ -11,7 +15,30 @@ from tqdm import tqdm
 import warnings
 warnings.filterwarnings("ignore")
 
+def one_hot_decode(encoded_seq):
+    """Reverts a sequence's one hot encoding."""
+
+    seq = []
+    code = list("ACGT")
+ 
+    for i in encoded_seq.transpose(1, 0):
+        try:
+            seq.append(code[int(np.where(i == 1)[0])])
+        except:
+            # i.e. N?
+            seq.append("N")
+
+    return("".join(seq))
+
 def get_intervals(tf):
+
+    test = {}
+    train = {}
+    validation = {}
+
+    tf_dir = os.path.join(intervals_dir, tf)
+    if not os.path.isdir(tf_dir):
+        os.makedirs(tf_dir)
 
     numpy_file = "matrix2d.%s.ReMap+UniBind.sparse.npz" % tf
 
@@ -19,18 +46,55 @@ def get_intervals(tf):
         matrix2d = handle["arr_0"]
     matrix1d = pd.DataFrame(matrix2d).max().to_numpy()
 
-    nonnan = np.argwhere(~np.isnan(matrix1d)).flatten()
+    for i in range(1, 11):
 
-    for i in range(2):
-        if not os.path.isdir(os.path.join(intervals_dir, str(i))):
-            os.makedirs(os.path.join(intervals_dir, str(i)))
-        bed_file = os.path.join(intervals_dir, str(i), "%s.bed" % tf)
-        if not os.path.exists(bed_file):
-            s = "\n".join(
-                [" ".join(regions[j]) for j in nonnan if matrix1d[j] == i]
-            )
-            a = BedTool(s, from_string=True)
-            a.saveas(bed_file)
+        arr = []
+
+        h5_file = os.path.join(tl_dir, str(i), "%s.h5" % tf)
+
+        if not os.path.exists(h5_file):
+            continue
+
+        data = h5py.File(h5_file, "r")
+
+        train.setdefault(i, np.array([int(j.decode()) for j in data["train_headers"]]))
+        validation.setdefault(i, np.array([int(j.decode()) for j in data["valid_headers"]]))
+        for encoded_seq in data["test_in"]:
+            seq = Seq(one_hot_decode(encoded_seq))
+            md5 = hashlib.md5(str(seq).encode()).hexdigest()
+            if md5 in sequences:
+                arr.append(sequences[md5])
+        test.setdefault(i, np.array(arr))
+
+        if not os.path.isdir(os.path.join(tf_dir, str(i))):
+            os.makedirs(os.path.join(tf_dir, str(i)))
+
+        for j in range(2):
+
+            if not os.path.isdir(os.path.join(tf_dir, str(i), str(j))):
+                os.makedirs(os.path.join(tf_dir, str(i), str(j)))
+
+            bed_file = os.path.join(tf_dir, str(i), str(j), "Train.bed")
+            if not os.path.exists(bed_file):
+                arr = np.sort(train[i])
+                s = "\n".join([" ".join(regions[j]) for j in arr if matrix1d[j] == i])
+                a = BedTool(s, from_string=True)
+                a.saveas(bed_file)
+
+            bed_file = os.path.join(tf_dir, str(i), str(j), "Validation.bed")
+            if not os.path.exists(bed_file):
+                arr = np.sort(validation[i])
+                s = "\n".join([" ".join(regions[j]) for j in arr if matrix1d[j] == i])
+                a = BedTool(s, from_string=True)
+                a.saveas(bed_file)
+
+            bed_file = os.path.join(tf_dir, str(i), str(j), "Test.bed")
+            if not os.path.exists(bed_file):
+                arr = np.sort(test[i])
+                s = "\n".join([" ".join(regions[j]) for j in arr if matrix1d[j] == i])
+                a = BedTool(s, from_string=True)
+                a.saveas(bed_file)
+
 
 scripts_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -46,6 +110,23 @@ regions = np.array([k for k in regions_idx.keys()])
 
 with gzip.open(os.path.join(matrix_dir, "tfs_idx.pickle.gz"), "rb") as f:
     tfs = pickle.load(f)
+
+sequences = {}
+
+for fasta_file in os.listdir(matrix_dir):
+
+    if not fasta_file.startswith("sequences.200bp."):
+        continue
+
+    with gzip.open(os.path.join(matrix_dir, fasta_file), "rt") as handle:
+
+        for record in SeqIO.parse(handle, "fasta"):
+
+            ix, _ = record.id.split("::")
+            md5 = hashlib.md5(str(record.seq).upper().encode()).hexdigest()
+            sequences.setdefault(md5, int(ix))
+
+tl_dir = os.path.join(scripts_dir, os.pardir, "data", "TL")
 
 # Parallelize
 kwargs = {
