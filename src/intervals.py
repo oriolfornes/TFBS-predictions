@@ -76,25 +76,34 @@ def get_intervals(tf):
 
             bed_file = os.path.join(tf_dir, str(i), str(j), "Train.bed")
             if not os.path.exists(bed_file):
-                s = "\n".join([" ".join(regions[ix]) for ix in np.sort(train) if matrix1d[ix] == j])
+                s = "\n".join([" ".join(regions[ix]) \
+                    for ix in np.sort(train) \
+                        if matrix1d[ix] == j])
                 a = BedTool(s, from_string=True)
                 a.saveas(bed_file)
 
             bed_file = os.path.join(tf_dir, str(i), str(j), "Validation.bed")
             if not os.path.exists(bed_file):
-                s = "\n".join([" ".join(regions[ix]) for ix in np.sort(validation) if matrix1d[ix] == j])
+                s = "\n".join([" ".join(regions[ix]) \
+                    for ix in np.sort(validation) \
+                        if matrix1d[ix] == j])
                 a = BedTool(s, from_string=True)
                 a.saveas(bed_file)
 
-            bed_file = os.path.join(tf_dir, str(i), str(j), "Train+Validation.bed")
+            bed_file = os.path.join(tf_dir, str(i), str(j),
+                "Train+Validation.bed")
             if not os.path.exists(bed_file):
-                s = "\n".join([" ".join(regions[ix]) for ix in np.sort(np.concatenate((train, validation))) if matrix1d[ix] == j])
+                s = "\n".join([" ".join(regions[ix]) \
+                    for ix in np.sort(np.concatenate((train, validation))) \
+                        if matrix1d[ix] == j])
                 a = BedTool(s, from_string=True)
                 a.saveas(bed_file)
 
             bed_file = os.path.join(tf_dir, str(i), str(j), "Test.bed")
             if not os.path.exists(bed_file):
-                s = "\n".join([" ".join(regions[ix]) for ix in np.sort(test) if matrix1d[ix] == j])
+                s = "\n".join([" ".join(regions[ix]) \
+                    for ix in np.sort(test) \
+                        if matrix1d[ix] == j])
                 a = BedTool(s, from_string=True)
                 a.saveas(bed_file)
 
