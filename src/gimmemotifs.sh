@@ -20,7 +20,7 @@ for TF in `ls ${INTERVALS_DIR}`; do
                     ${GIMMEMOTIFS_DIR}/${TF}/${I} \
                     -b ${SEQUENCES_FILE} \
                     -g ${FASTA_FILE} \
-                    -t Homer,MEME \
+                    -t ChIPMunk,Homer \
                     --denovo
             fi
         fi
