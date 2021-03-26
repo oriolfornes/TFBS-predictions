@@ -2,8 +2,8 @@
 
 SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-INTERVALS_DIR=${SCRIPTS_DIR}/../intervals
 FASTA_FILE=${SCRIPTS_DIR}/../data/genomes/hg38/hg38.fa
+INTERVALS_DIR=${SCRIPTS_DIR}/../intervals
 SEQUENCES_DIR=${SCRIPTS_DIR}/../sequences
 
 if ! [ -d ${SEQUENCES_DIR} ]; then
@@ -28,7 +28,7 @@ for TF in `ls ${INTERVALS_DIR}/`; do
                 mkdir ${SEQUENCES_DIR}/${TF}/${I}/${J}
             fi
 
-            for FILE in "Test" "Train"; do
+            for FILE in "Test" "Train+Validation"; do
 
                 INTERVALS_FILE=${INTERVALS_DIR}/${TF}/${I}/${J}/${FILE}.bed
                 SEQUENCES_FILE=${SEQUENCES_DIR}/${TF}/${I}/${J}/${FILE}.fa

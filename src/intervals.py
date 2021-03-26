@@ -59,7 +59,7 @@ def get_intervals(tf):
                 arr.append(sequences[md5])
         test = np.array(arr)
 
-        if len(train) == 0 or len(test) == 0:
+        if len(train) == 0 or len(validation) == 0 or len(test) == 0:
             continue
 
         tf_dir = os.path.join(intervals_dir, tf)
@@ -83,6 +83,12 @@ def get_intervals(tf):
             bed_file = os.path.join(tf_dir, str(i), str(j), "Validation.bed")
             if not os.path.exists(bed_file):
                 s = "\n".join([" ".join(regions[ix]) for ix in np.sort(validation) if matrix1d[ix] == j])
+                a = BedTool(s, from_string=True)
+                a.saveas(bed_file)
+
+            bed_file = os.path.join(tf_dir, str(i), str(j), "Train+Validation.bed")
+            if not os.path.exists(bed_file):
+                s = "\n".join([" ".join(regions[ix]) for ix in np.sort(np.concatenate((train, validation))) if matrix1d[ix] == j])
                 a = BedTool(s, from_string=True)
                 a.saveas(bed_file)
 

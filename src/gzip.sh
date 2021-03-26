@@ -5,18 +5,18 @@ SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 INTERVALS_DIR=${SCRIPTS_DIR}/../intervals
 SEQUENCES_DIR=${SCRIPTS_DIR}/../sequences
 
-for FILE in `find ${INTERVALS_DIR} -type f`; do
+for F in `find ${INTERVALS_DIR} -type f`; do
 
-    if [ ${FILE: -4} == ".bed" ]; then
-        gzip ${FILE}
+    if [ ${F: -4} == ".bed" ]; then
+        gzip ${F}
     fi
 
 done
 
-for FILE in `find ${SEQUENCES_DIR} -type f`; do
+for F in `find ${SEQUENCES_DIR} -type f`; do
 
-    if [ ${FILE: -3} == ".fa" ]; then
-        gzip ${FILE}
+    if [ ${F: -3} == ".fa" ]; then
+        gzip ${F}
     fi
 
 done

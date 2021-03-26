@@ -2,10 +2,10 @@
 
 SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-INTERVALS_DIR=${SCRIPTS_DIR}/../intervals
 FASTA_FILE=${SCRIPTS_DIR}/../data/genomes/hg38/hg38.fa
-SEQUENCES_DIR=${SCRIPTS_DIR}/../sequences
 GIMMEMOTIFS_DIR=${SCRIPTS_DIR}/../gimmemotifs
+INTERVALS_DIR=${SCRIPTS_DIR}/../intervals
+SEQUENCES_DIR=${SCRIPTS_DIR}/../sequences
 
 for TF in `ls ${INTERVALS_DIR}`; do
 
