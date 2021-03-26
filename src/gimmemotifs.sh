@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 INTERVALS_DIR=${SCRIPTS_DIR}/../intervals
@@ -9,8 +11,8 @@ for TF in `ls ${INTERVALS_DIR}`; do
 
     for I in `ls ${INTERVALS_DIR}/${TF}`; do
 
-        INTERVALS_FILE=${INTERVALS_DIR}/${TF}/${I}/1/Train.bed
-        SEQUENCES_FILE=${SEQUENCES_DIR}/${TF}/${I}/0/Train.fa
+        INTERVALS_FILE=${INTERVALS_DIR}/${TF}/${I}/1/Train+Validation.bed
+        SEQUENCES_FILE=${SEQUENCES_DIR}/${TF}/${I}/0/Train+Validation.fa
 
         if [[ -f ${INTERVALS_FILE} && -f ${SEQUENCES_FILE} ]]; then
             if ! [[ -d ${GIMMEMOTIFS_DIR}/${TF}/${I} ]]; then
