@@ -13,7 +13,6 @@ import pickle
 from pybedtools.bedtool import BedTool
 from tqdm import tqdm
 import warnings
-
 warnings.filterwarnings("ignore")
 
 def one_hot_decode(encoded_seq):
@@ -90,14 +89,14 @@ def get_intervals(tf):
                 a = BedTool(s, from_string=True)
                 a.saveas(bed_file)
 
-            bed_file = os.path.join(tf_dir, str(i), str(j),
-                "Train+Validation.bed")
-            if not os.path.exists(bed_file):
-                s = "\n".join([" ".join(regions[ix]) \
-                    for ix in np.sort(np.concatenate((train, validation))) \
-                        if matrix1d[ix] == j])
-                a = BedTool(s, from_string=True)
-                a.saveas(bed_file)
+            # bed_file = os.path.join(tf_dir, str(i), str(j),
+            #     "Train+Validation.bed")
+            # if not os.path.exists(bed_file):
+            #     s = "\n".join([" ".join(regions[ix]) \
+            #         for ix in np.sort(np.concatenate((train, validation))) \
+            #             if matrix1d[ix] == j])
+            #     a = BedTool(s, from_string=True)
+            #     a.saveas(bed_file)
 
             bed_file = os.path.join(tf_dir, str(i), str(j), "Test.bed")
             if not os.path.exists(bed_file):

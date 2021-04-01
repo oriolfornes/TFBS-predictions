@@ -22,10 +22,10 @@ for F in `find ${SEQUENCES_DIR} -type f`; do
 
 done
 
-for F in `find ${STREME_DIR} -type f`; do
+# for F in `find ${STREME_DIR} -type f`; do
 
-    if [ ${F: -4} == ".txt" ]; then
-        gzip ${F}
-    fi
+#     if [ ${F: -4} == ".txt" ]; then
+#         gzip ${F}
+#     fi
 
-done
+# done
