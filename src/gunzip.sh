@@ -6,13 +6,13 @@ INTERVALS_DIR=${SCRIPTS_DIR}/../intervals
 SEQUENCES_DIR=${SCRIPTS_DIR}/../sequences
 STREME_DIR=${SCRIPTS_DIR}/../streme
 
-for F in `find ${INTERVALS_DIR} -type f`; do
+# for F in `find ${INTERVALS_DIR} -type f`; do
 
-    if [ ${F: -3} == ".gz" ]; then
-        gunzip ${F}
-    fi
+#     if [ ${F: -3} == ".gz" ]; then
+#         gunzip ${F}
+#     fi
 
-done
+# done
 
 for F in `find ${SEQUENCES_DIR} -type f`; do
 
