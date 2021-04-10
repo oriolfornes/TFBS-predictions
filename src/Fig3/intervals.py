@@ -106,13 +106,13 @@ def get_intervals(tf):
                 a = BedTool(s, from_string=True)
                 a.saveas(bed_file)
 
-scripts_dir = os.path.dirname(os.path.realpath(__file__))
+src_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir)
 
-intervals_dir = os.path.join(scripts_dir, os.pardir, "intervals")
+intervals_dir = os.path.join(src_dir, os.pardir, "intervals", "Fig3")
 if not os.path.isdir(intervals_dir):
     os.makedirs(intervals_dir)
 
-matrix_dir = os.path.join(scripts_dir, os.pardir, "data", "TF-Binding-Matrix")
+matrix_dir = os.path.join(src_dir, os.pardir, "data", "TF-Binding-Matrix")
 
 with gzip.open(os.path.join(matrix_dir, "regions_idx.pickle.gz"), "rb") as f:
     regions_idx = pickle.load(f)
@@ -136,7 +136,7 @@ for fasta_file in os.listdir(matrix_dir):
             md5 = hashlib.md5(str(record.seq).upper().encode()).hexdigest()
             sequences.setdefault(md5, int(ix))
 
-tl_dir = os.path.join(scripts_dir, os.pardir, "data", "TL")
+tl_dir = os.path.join(src_dir, os.pardir, "data", "TL", "Fig3")
 
 # Parallelize
 kwargs = {
