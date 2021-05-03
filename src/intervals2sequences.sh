@@ -53,16 +53,16 @@ for SUB_DIR in `ls ${INTERVALS_DIR}`; do
                     mkdir -p ${SEQUENCES_DIR}/${SUB_DIR}/${TF}/${I}/${J}
                 fi
 
-                for FILE in "Test" "Train" "Validation"; do
+                for FILE in "Test"; do
 
                     PREFIXES=(${INTERVALS_DIR}/${SUB_DIR}/${TF}/${I}/${J} \
                         ${SEQUENCES_DIR}/${SUB_DIR}/${TF}/${I}/${J})
 
-                    if [ -f ${PREFIXES[0]}/${FILE}.bed ]; then
-                        if ! [ -f ${PREFIXES[1]}/${FILE}.fa ]; then
+                    if [ -f ${PREFIXES[0]}/${FILE}-hard.bed ]; then
+                        if ! [ -f ${PREFIXES[1]}/${FILE}-hard.fa ]; then
                             bedtools getfasta -fi ${GENOME_FILE} \
-                                -bed ${PREFIXES[0]}/${FILE}.bed \
-                                -fo ${PREFIXES[1]}/${FILE}.fa
+                                -bed ${PREFIXES[0]}/${FILE}-hard.bed \
+                                -fo ${PREFIXES[1]}/${FILE}-hard.fa
                         fi
                     fi
 

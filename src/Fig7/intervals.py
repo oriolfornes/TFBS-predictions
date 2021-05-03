@@ -15,6 +15,54 @@ from tqdm import tqdm
 import warnings
 warnings.filterwarnings("ignore")
 
+src_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir)
+
+intervals_dir = os.path.join(src_dir, os.pardir, "intervals", "Fig7")
+if not os.path.isdir(intervals_dir):
+    os.makedirs(intervals_dir)
+
+matrix_dir = os.path.join(src_dir, os.pardir, "data", "TF-Binding-Matrix")
+
+with gzip.open(os.path.join(matrix_dir, "regions_idx.pickle.gz"), "rb") as f:
+    regions_idx = pickle.load(f)
+regions = np.array([k for k in regions_idx.keys()])
+
+tfs = [
+    "ATF7",
+    "ERG",
+    "ETV4",
+    "HNF4A",
+    "JUND",
+    "KLF9",
+    "MAX",
+    "MEF2A",
+    "MNT",
+    "NFE2L1",
+    "NR2C2",
+    "SP1",
+    "SPI1",
+    "SREBF2",
+    "VDR",
+    "ZNF740",
+]
+
+sequences = {}
+
+for fasta_file in os.listdir(matrix_dir):
+
+    if not fasta_file.startswith("sequences.200bp."):
+        continue
+
+    with gzip.open(os.path.join(matrix_dir, fasta_file), "rt") as handle:
+
+        for record in SeqIO.parse(handle, "fasta"):
+
+            ix, _ = record.id.split("::")
+            md5 = hashlib.md5(str(record.seq).upper().encode()).hexdigest()
+            sequences.setdefault(md5, int(ix))
+
+tl_dir = os.path.join(src_dir, os.pardir, "data", "TL", "Fig7")
+
 def one_hot_decode(encoded_seq):
     """Reverts a sequence's one hot encoding."""
 
@@ -90,15 +138,6 @@ def get_intervals(tf):
                     a = BedTool(s, from_string=True)
                     a.saveas(bed_file)
 
-                # bed_file = os.path.join(tf_dir, str(i), str(j),
-                #     "Train+Validation.bed")
-                # if not os.path.exists(bed_file):
-                #     s = "\n".join([" ".join(regions[ix]) \
-                #         for ix in np.sort(np.concatenate((train, validation))) \
-                #             if matrix1d[ix] == j])
-                #     a = BedTool(s, from_string=True)
-                #     a.saveas(bed_file)
-
                 bed_file = os.path.join(tf_dir, str(i), str(j), "Test.bed")
                 if not os.path.exists(bed_file):
                     s = "\n".join([" ".join(regions[ix]) \
@@ -107,43 +146,8 @@ def get_intervals(tf):
                     a = BedTool(s, from_string=True)
                     a.saveas(bed_file)
 
-src_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir)
-
-intervals_dir = os.path.join(src_dir, os.pardir, "intervals", "Fig7")
-if not os.path.isdir(intervals_dir):
-    os.makedirs(intervals_dir)
-
-matrix_dir = os.path.join(src_dir, os.pardir, "data", "TF-Binding-Matrix")
-
-with gzip.open(os.path.join(matrix_dir, "regions_idx.pickle.gz"), "rb") as f:
-    regions_idx = pickle.load(f)
-regions = np.array([k for k in regions_idx.keys()])
-
-with gzip.open(os.path.join(matrix_dir, "tfs_idx.pickle.gz"), "rb") as f:
-    tfs = pickle.load(f)
-
-sequences = {}
-
-for fasta_file in os.listdir(matrix_dir):
-
-    if not fasta_file.startswith("sequences.200bp."):
-        continue
-
-    with gzip.open(os.path.join(matrix_dir, fasta_file), "rt") as handle:
-
-        for record in SeqIO.parse(handle, "fasta"):
-
-            ix, _ = record.id.split("::")
-            md5 = hashlib.md5(str(record.seq).upper().encode()).hexdigest()
-            sequences.setdefault(md5, int(ix))
-
-tl_dir = os.path.join(src_dir, os.pardir, "data", "TL", "Fig7")
-
 # Parallelize
-kwargs = {
-    "total": len(tfs),
-    "ncols": 100
-}
+kwargs = {"total": len(tfs), "ncols": 100}
 pool = Pool(4)
 for _ in tqdm(pool.imap(get_intervals, tfs), **kwargs):
     pass
