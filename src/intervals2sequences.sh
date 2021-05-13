@@ -22,6 +22,10 @@ for TF in `ls ${INTERVALS_DIR}`; do
                 PREFIXES=(${INTERVALS_DIR}/${TF}/${I}/${J} \
                     ${SEQUENCES_DIR}/${TF}/${I}/${J})
 
+                if [ -f ${PREFIXES[1]}/${FILE}.fa.gz ]; then
+                    continue
+                fi
+
                 if [ -f ${PREFIXES[0]}/${FILE}.bed ]; then
                     if ! [ -f ${PREFIXES[1]}/${FILE}.fa ]; then
                         bedtools getfasta -fi ${GENOME_FILE} \
@@ -53,20 +57,43 @@ for SUB_DIR in `ls ${INTERVALS_DIR}`; do
                     mkdir -p ${SEQUENCES_DIR}/${SUB_DIR}/${TF}/${I}/${J}
                 fi
 
-                for FILE in "Test"; do
+                for FILE in "Test" "Train" "Validation"; do
 
                     PREFIXES=(${INTERVALS_DIR}/${SUB_DIR}/${TF}/${I}/${J} \
                         ${SEQUENCES_DIR}/${SUB_DIR}/${TF}/${I}/${J})
 
-                    if [ -f ${PREFIXES[0]}/${FILE}-hard.bed ]; then
-                        if ! [ -f ${PREFIXES[1]}/${FILE}-hard.fa ]; then
+                    if [ -f ${PREFIXES[1]}/${FILE}.fa.gz ]; then
+                        continue
+                    fi
+
+                    if [ -f ${PREFIXES[0]}/${FILE}.bed ]; then
+                        if ! [ -f ${PREFIXES[1]}/${FILE}.fa ]; then
                             bedtools getfasta -fi ${GENOME_FILE} \
-                                -bed ${PREFIXES[0]}/${FILE}-hard.bed \
-                                -fo ${PREFIXES[1]}/${FILE}-hard.fa
+                                -bed ${PREFIXES[0]}/${FILE}.bed \
+                                -fo ${PREFIXES[1]}/${FILE}.fa
                         fi
                     fi
 
                 done
+
+            done
+
+            for FILE in "Test-all" "Test-hard"; do
+
+                PREFIXES=(${INTERVALS_DIR}/${SUB_DIR}/${TF}/${I}/0 \
+                    ${SEQUENCES_DIR}/${SUB_DIR}/${TF}/${I}/0)
+
+                if [ -f ${PREFIXES[1]}/${FILE}.fa.gz ]; then
+                    continue
+                fi
+
+                if [ -f ${PREFIXES[0]}/${FILE}.bed ]; then
+                    if ! [ -f ${PREFIXES[1]}/${FILE}.fa ]; then
+                        bedtools getfasta -fi ${GENOME_FILE} \
+                            -bed ${PREFIXES[0]}/${FILE}.bed \
+                            -fo ${PREFIXES[1]}/${FILE}.fa
+                    fi
+                fi
 
             done
 
